@@ -1,6 +1,6 @@
 function widget:GetInfo()
 	return {
-		name    = "Ping Wheel",
+		name    = "Ping Widget",
 		desc    = "new ping behavior",
 		author  = "Hobo Joe",
 		date    = "Nov 2023",
