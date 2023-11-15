@@ -53,7 +53,6 @@ local pingWheelTextColor = { 1, 1, 1, 0.7 }
 local pingWheelTextSize = 25
 local pingWheelTextHighlightColor = { 1, 1, 1, 1 }
 local pingWheelTextSpamColor = { 0.9, 0.9, 0.9, 0.4 }
-local pingWheelPlayerColor = { 0.9, 0.8, 0.5, 0.8 }
 
 local pingWheelColor = { 0.9, 0.8, 0.5, 0.6 }
 ---------------------------------------------------------------
@@ -73,9 +72,12 @@ local dividerColor = { 1, 1, 1, 0.15 }
 
 local pingWheel = pingCommands
 local pingKeyDown = false
+local eraseKeyDown = false
 local displayPingWheel = false
 local mouseDownTime = 0
 local mouseDownPos
+local lastCursorWorldPos
+local rmbDown = false
 
 local pingWorldLocation
 local pingWheelScreenLocation
@@ -103,6 +105,10 @@ local function distance2dSquared(x1, y1, x2, y2)
 	return dx * dx + dy + dy
 end
 
+local function distance2d(x1, y1, x2, y2)
+	return sqrt(distance2dSquared(x1, y1, x2, y2))
+end
+
 local function distance3dSquared(x1, y1, z1, x2, y2, z2)
 	local dx = x1 - x2
 	local dy = y1 - y2
@@ -110,22 +116,32 @@ local function distance3dSquared(x1, y1, z1, x2, y2, z2)
 	return dx * dx + dy * dy + dz * dz
 end
 
+local function distance3d(x1, y1, z1, x2, y2, z2)
+	return sqrt(distance3dSquared(x1, y1, z1, x2, y2, z2))
+end
+
+
+
 
 function widget:Initialize()
     -- add the action handler with argument for press and release using the same function call
-    widgetHandler.actionHandler:AddAction(self, "ping", pingButtonPress, { true }, "pR")
-    widgetHandler.actionHandler:AddAction(self, "ping", pingButtonPress, { false }, "r")
-    pingWheelPlayerColor = { Spring.GetTeamColor(Spring.GetMyTeamID()) }
-
-    -- we disable the mouse build spacing widget here, sigh
-    widgetHandler:DisableWidget("Mouse Buildspacing")
+    widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { true }, "pR")
+    widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { false }, "r")
+	widgetHandler.actionHandler:AddAction(self, "erase", eraseButtonAction, { true }, "pR")
+	widgetHandler.actionHandler:AddAction(self, "erase", eraseButtonAction, { false }, "r")
 end
 
+
+local function getCursorWorldPosition()
+	local mx, my = spGetMouseState()
+	local _, pos = spTraceScreenRay(mx, my, true)
+	return pos
+end
 
 -- Store the ping location in pingWorldLocation
 local function SetPingLocation()
     local mx, my = spGetMouseState()
-    local _, pos = spTraceScreenRay(mx, my, true)
+    local pos = getCursorWorldPosition()
     if pos then
         pingWorldLocation = { pos[1], pos[2], pos[3] }
         pingWheelScreenLocation = { x = mx, y = my }
@@ -171,12 +187,23 @@ local function showWheel(show, reason)
 end
 
 
-function pingButtonPress(_, _, _, args)
+function pingButtonAction(_, _, _, args)
     if args[1] then
         pingKeyDown = true
     else
 		pingKeyDown = false
+		if(displayPingWheel) then
+			showWheel(false, "key release")
+		end
     end
+end
+
+function eraseButtonAction(_, _, _, args)
+	if args[1] then
+		eraseKeyDown = true
+	else
+		eraseKeyDown = false
+	end
 end
 
 
@@ -188,20 +215,28 @@ end
 
 
 function widget:MousePress(mx, my, button)
+	if(button == 3) then
+		rmbDown = true
+	end
     if pingKeyDown and button == 1 then
 		mouseDownTime = os.clock()
 		mouseDownPos = { x = mx, y = my }
         return true -- block all other mouse presses
-    else
-        -- set pingwheel to not display
-        showWheel(false, "mouse release")
     end
+	if(pingKeyDown and button == 3) then
+		local pos = getCursorWorldPosition()
+		lastCursorWorldPos = pos
+		return true
+	end
 end
 
 -- when mouse is pressed, issue the ping command
 function widget:MouseRelease(mx, my, button)
 	if(button == 1) then
 		mouseDownTime = 0
+	end
+	if(button == 3) then
+		rmbDown = false
 	end
     if displayPingWheel
         and pingWorldLocation
@@ -232,7 +267,6 @@ end
 
 
 
-
 function widget:MouseMove(x, y)
 	if(mouseDownPos and not displayPingWheel) then
 		if(distance2dSquared(mouseDownPos.x, mouseDownPos.y, x, y) > 20) then
@@ -253,7 +287,6 @@ function widget:Update(dt)
 	if(mouseDownTime > 0 and clock - mouseDownTime > 0.3) then
 		mouseDownTime = 0
 		showWheel(true, "delayed click")
-		Spring.Echo("delayed click")
 	end
 
 	-- watch for drawlabel command, we need to fire it on a later frame than the cursor movement
@@ -265,7 +298,7 @@ function widget:Update(dt)
 	end
 
 
-    -- we need smooth update of fade frames
+    -- Fade handling - we need smooth update of fade frames
 	fadeTime = fadeTime + dt
     if (fadeTime > 0.017) and globalFadeIn > 0 or globalFadeOut > 0 then
 		fadeTime = 0
@@ -284,6 +317,7 @@ function widget:Update(dt)
         end
     end
 
+	-- Wheel handling
 	wheelTime = wheelTime + dt
     if (wheelTime > 0.03) and displayPingWheel then
 		wheelTime = 0
@@ -312,10 +346,7 @@ function widget:Update(dt)
             elseif selection ~= pingWheelSelection then
                 pingWheelSelection = selection
                 Spring.PlaySoundFile(soundDefaultSelect, 0.05, 'ui')
-                --Spring.SetMouseCursor("cursorjump")
             end
-
-            --Spring.Echo("pingWheelSelection: " .. pingWheel[pingWheelSelection].name)
         end
         if flashing and displayPingWheel then
             if flashFrame > 0 then
@@ -329,6 +360,36 @@ function widget:Update(dt)
             spamControl = (spamControl == 0) and 0 or (spamControl - 1)
         end
     end
+
+
+	-- Draw handling
+	drawTime = drawTime + dt
+	if(drawTime > 0.05) then
+		drawTime = 0
+
+		-- Erase
+		if(eraseKeyDown and rmbDown) then
+			local pos = getCursorWorldPosition()
+			if (pos) then
+				Spring.MarkerErasePosition(pos[1], pos[2], pos[3])
+			end
+			return
+		end
+
+		-- Draw
+		if(pingKeyDown and rmbDown) then
+			local pos = getCursorWorldPosition()
+			if(pos) then
+				local prev = lastCursorWorldPos
+				local id = Spring.GetMyPlayerID()
+				local dist = distance3d(prev[1], prev[2], prev[3], pos[1], pos[2], pos[3])
+				Spring.MarkerAddLine(prev[1], prev[2], prev[3], pos[1], pos[2], pos[3], false, id)
+				lastCursorWorldPos = pos
+
+				-- Spring.Echo("Distance is " .. tostring(dist))
+			end
+		end
+	end
 end
 
 local glColor2 = gl.Color

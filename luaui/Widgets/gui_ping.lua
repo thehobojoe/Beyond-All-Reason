@@ -45,8 +45,8 @@ end
 
 function widget:Initialize()
 	-- add the action handler with argument for press and release using the same function call
-	widgetHandler.actionHandler:AddAction(self, "ping", pingButtonPress, { true }, "pR")
-	widgetHandler.actionHandler:AddAction(self, "ping", pingButtonPress, { false }, "r")
+	widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { true }, "pR")
+	widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { false }, "r")
 	widgetHandler.actionHandler:AddAction(self, "erase", eraseButtonpress, { true }, "p")
 	widgetHandler.actionHandler:AddAction(self, "erase", eraseButtonpress, { false }, "r")
 end
