@@ -16,7 +16,7 @@ end
 -- the options in the ping wheel, displayed clockwise from 12 o'clock
 -- 8 entries is the sweet spot, covers the cardinal directions and diagonals
 local pingCommands = {
-	{ name = "Custom" },
+	{ name = "[Message]" },
 	{ name = "Well Played" },
     { name = "Attack" },
 	{ name = "Reclaim"},
@@ -43,8 +43,8 @@ local viewSizeX, viewSizeY = Spring.GetViewGeometry()
 local labelTime = 0
 
 -- Sizes and colors
-local pingWheelRadius = 0.1 * math.min(viewSizeX, viewSizeY) -- 10% of the screen size
-local pingWheelThickness = 2                                 -- thickness of the ping wheel line drawing
+local pingWheelRadius = 0.12 * math.min(viewSizeX, viewSizeY) -- 10% of the screen size
+local pingWheelThickness = 3                                 -- thickness of the ping wheel line drawing
 local centerDotSize = 20                                     -- size of the center dot
 local deadZoneRadiusRatio = 0.3                              -- the center "no selection" area as a ratio of the ping wheel radius
 local outerLimitRadiusRatio = 5                              -- the outer limit ratio where "no selection" is active
@@ -67,14 +67,17 @@ local bgTextureSizeRatio = 1.9
 local bgTextureColor = { 0, 0, 0, 0.66 }
 local dividerInnerRatio = 0.6
 local dividerOuterRatio = 1.2
-local textAlignRadiusRatio = 0.9
+local textAlignRadiusRatio = 1.0
 local dividerColor = { 1, 1, 1, 0.15 }
 
 local pingWheel = pingCommands
 local pingKeyDown = false
+local pingKeyUpTime = 0
 local eraseKeyDown = false
-local displayPingWheel = false
+local pingWheelActive = false
 local mouseDownTime = 0
+local longPressThreshold = 0.2
+local distanceThreshhold = 15
 local mouseDownPos
 local lastCursorWorldPos
 local rmbDown = false
@@ -122,7 +125,6 @@ end
 
 
 
-
 function widget:Initialize()
     -- add the action handler with argument for press and release using the same function call
     widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { true }, "pR")
@@ -139,7 +141,7 @@ local function getCursorWorldPosition()
 end
 
 -- Store the ping location in pingWorldLocation
-local function SetPingLocation()
+local function setPingLocation()
     local mx, my = spGetMouseState()
     local pos = getCursorWorldPosition()
     if pos then
@@ -169,15 +171,15 @@ local function showWheel(show, reason)
     -- set pingwheel to display
 	Spring.Echo("Show Wheel: " .. tostring(show) .. " " .. reason)
 	if(show) then
-		displayPingWheel = true
+		pingWheelActive = true
 		if not pingWorldLocation then
-			SetPingLocation()
+			setPingLocation()
 		end
 		-- turn on fade in
 		FadeIn()
 	else
-		if displayPingWheel then
-			displayPingWheel = false
+		if pingWheelActive then
+			pingWheelActive = false
 			pingWorldLocation = nil
 			pingWheelScreenLocation = nil
 			pingWheelSelection = 0
@@ -192,8 +194,9 @@ function pingButtonAction(_, _, _, args)
         pingKeyDown = true
     else
 		pingKeyDown = false
-		if(displayPingWheel) then
-			showWheel(false, "key release")
+		pingKeyUpTime = os.clock()
+		if(pingWheelActive) then
+			fadeOut(false, "key release")
 		end
     end
 end
@@ -221,6 +224,7 @@ function widget:MousePress(mx, my, button)
     if pingKeyDown and button == 1 then
 		mouseDownTime = os.clock()
 		mouseDownPos = { x = mx, y = my }
+		setPingLocation()
         return true -- block all other mouse presses
     end
 	if(pingKeyDown and button == 3) then
@@ -233,44 +237,54 @@ end
 -- when mouse is pressed, issue the ping command
 function widget:MouseRelease(mx, my, button)
 	if(button == 1) then
+		if(
+			pingKeyDown and
+			os.clock() - mouseDownTime < longPressThreshold and
+			distance2dSquared(mouseDownPos.x, mouseDownPos.y, mx, my) < distanceThreshhold
+		) then
+			Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], "")
+		end
 		mouseDownTime = 0
+
+		if pingWheelActive
+			and pingWorldLocation
+			and spamControl == 0
+		then
+			if pingWheelSelection > 0 then
+				local pingText = pingWheel[pingWheelSelection].name
+				if(pingWheelSelection == 1) then
+					Spring.WarpMouse(mouseDownPos.x, mouseDownPos.y)
+					Spring.Echo("selected custom")
+					labelTime = os.clock()
+				else
+					Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], pingText, false)
+				end
+
+				-- Spam control is necessary!
+				spamControl = spamControlFrames
+
+				-- play a UI sound to indicate ping was issued
+				flashAndOff()
+			else
+				fadeOut()
+			end
+		else
+			fadeOut()
+		end
 	end
+
 	if(button == 3) then
 		rmbDown = false
 	end
-    if displayPingWheel
-        and pingWorldLocation
-        and spamControl == 0
-    then
-        if pingWheelSelection > 0 then
-            local pingText = pingWheel[pingWheelSelection].name
-			if(pingWheelSelection == 1) then
-				Spring.WarpMouse(mouseDownPos.x, mouseDownPos.y)
-				Spring.Echo("selected custom")
-				labelTime = os.clock()
-			else
-				Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], pingText, false)
-			end
-
-            -- Spam control is necessary!
-            spamControl = spamControlFrames
-
-            -- play a UI sound to indicate ping was issued
-            flashAndOff()
-        else
-            fadeOut()
-        end
-    else
-        fadeOut()
-    end
 end
 
 
 
 function widget:MouseMove(x, y)
-	if(mouseDownPos and not displayPingWheel) then
-		if(distance2dSquared(mouseDownPos.x, mouseDownPos.y, x, y) > 20) then
+	if(mouseDownPos and not pingWheelActive) then
+		if(distance2dSquared(mouseDownPos.x, mouseDownPos.y, x, y) > distanceThreshhold) then
 			mouseDownTime = 0
+			mouseDownPos = nil
 			showWheel(true, "mouse movement")
 		end
 	end
@@ -284,14 +298,14 @@ function widget:Update(dt)
 	local clock = os.clock()
 
 	-- watch mouse behavior
-	if(mouseDownTime > 0 and clock - mouseDownTime > 0.3) then
+	if(mouseDownTime > 0 and clock - mouseDownTime > longPressThreshold) then
 		mouseDownTime = 0
 		showWheel(true, "delayed click")
 	end
 
 	-- watch for drawlabel command, we need to fire it on a later frame than the cursor movement
 	if(labelTime > 0) then
-		if(os.clock() - labelTime > 0.017) then
+		if(clock - labelTime > 0.017) then
 			Spring.SendCommands("drawlabel")
 			labelTime = 0
 		end
@@ -319,7 +333,7 @@ function widget:Update(dt)
 
 	-- Wheel handling
 	wheelTime = wheelTime + dt
-    if (wheelTime > 0.03) and displayPingWheel then
+    if (wheelTime > 0.03) and pingWheelActive then
 		wheelTime = 0
         if globalFadeOut == 0 and not flashing then -- if not flashing and not fading out
             local mx, my = spGetMouseState()
@@ -348,7 +362,7 @@ function widget:Update(dt)
                 Spring.PlaySoundFile(soundDefaultSelect, 0.05, 'ui')
             end
         end
-        if flashing and displayPingWheel then
+        if flashing and pingWheelActive then
             if flashFrame > 0 then
                 flashFrame = flashFrame - 1
             else
@@ -382,10 +396,10 @@ function widget:Update(dt)
 			if(pos) then
 				local prev = lastCursorWorldPos
 				local id = Spring.GetMyPlayerID()
-				local dist = distance3d(prev[1], prev[2], prev[3], pos[1], pos[2], pos[3])
 				Spring.MarkerAddLine(prev[1], prev[2], prev[3], pos[1], pos[2], pos[3], false, id)
 				lastCursorWorldPos = pos
 
+				-- local dist = distance3d(prev[1], prev[2], prev[3], pos[1], pos[2], pos[3])
 				-- Spring.Echo("Distance is " .. tostring(dist))
 			end
 		end
@@ -432,7 +446,7 @@ local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
 function widget:DrawScreen()
     -- if keyDown then draw a dot at where mouse is
     glPushMatrix()
-    if pingKeyDown and not displayPingWheel then
+    if pingKeyDown and not pingWheelActive then
         -- draw dot at mouse location
         local mx, my = spGetMouseState()
         glColor2(pingWheelColor)
@@ -444,7 +458,7 @@ function widget:DrawScreen()
         glText("L-click\nCmds", mx - 15, my + 11, 12, "ros")
     end
     -- we draw a wheel at the pingWheelScreenLocation divided into #pingWheel slices, with the first slice starting at the top
-    if displayPingWheel and pingWheelScreenLocation then
+    if pingWheelActive and pingWheelScreenLocation then
         -- add the blackCircleTexture as background texture
         glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glColor(0,0,0,0.4) -- inverting color for the glow texture :)
