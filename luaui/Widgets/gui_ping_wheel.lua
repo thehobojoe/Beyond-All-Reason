@@ -34,9 +34,6 @@ local draw_circle = true      -- set to false to disable the circle around the p
 
 -- Fade and spam frames (set to 0 to disable)
 -- NOTE: these are now game frames, not display frames, so always 30 fps
-local numFadeInFrames = 6   -- how many frames to fade in
-local numFadeOutFrames = 4  -- how many frames to fade out
-local numFlashFrames = 3    -- how many frames to flash when spamming
 local spamControlFrames = 8 -- how many frames to wait before allowing another ping
 
 local viewSizeX, viewSizeY = Spring.GetViewGeometry()
@@ -65,13 +62,11 @@ local dividerColor = { 1, 1, 1, 0.15 }
 local isPregame = Spring.GetGameFrame() == 0 and not isSpec
 
 local globalDim = 1     -- this controls global alpha of all gl.Color calls
-local globalFadeIn = 0  -- how many frames left to fade in
-local globalFadeOut = 0 -- how many frames left to fade out
 
 local pingWheel = pingCommands
 local pingKeyDown = false
 local pingKeyUpTime = 0
-local pingKeyGraceTime = 0.05
+local pingKeyGraceTime = 0.1
 local eraseKeyDown = false
 local pingWheelActive = false
 local lmbDownTime = 0
@@ -86,8 +81,6 @@ local pingWorldLocation
 local pingWheelScreenLocation
 local pingWheelSelection = 0
 local spamControl = 0
-local flashFrame = 0
-local flashing = false
 
 -- Speedups
 local spGetMouseState = Spring.GetMouseState
@@ -154,37 +147,18 @@ local function setPingLocation()
 end
 
 
-local function fadeIn()
-    if numFadeInFrames == 0 then return end
-    globalFadeIn = numFadeInFrames
-    globalFadeOut = 0
-end
-
-local function fadeOut()
-    if numFadeOutFrames == 0 then return end
-    globalFadeIn = 0
-    globalFadeOut = numFadeOutFrames
-end
-
-
 local function showWheel(show, reason)
     -- set pingwheel to display
-	Spring.Echo("Show Wheel: " .. tostring(show) .. " " .. reason)
 	if(show) then
 		pingWheelActive = true
 		if not pingWorldLocation then
 			setPingLocation()
 		end
-		-- turn on fade in
-		fadeIn()
-	else
-		if pingWheelActive then
-			pingWheelActive = false
-			pingWorldLocation = nil
-			pingWheelScreenLocation = nil
-			pingWheelSelection = 0
-			fadeOut()
-		end
+	elseif pingWheelActive then
+		pingWheelActive = false
+		pingWorldLocation = nil
+		pingWheelScreenLocation = nil
+		pingWheelSelection = 0
 	end
 end
 
@@ -205,14 +179,6 @@ function eraseButtonAction(_, _, _, args)
 	end
 end
 
-
--- sets flashing effect to true and turn off wheel display
-local function flashAndOff()
-    flashing = true
-    flashFrame = numFlashFrames
-end
-
-
 function widget:MousePress(mx, my, button)
     if pingKeyDown and button == 1 then
 		lmbDownTime = os.clock()
@@ -231,17 +197,15 @@ end
 
 -- when mouse is pressed, issue the ping command
 function widget:MouseRelease(mx, my, button)
-	Spring.Echo("mouse release")
 	if(button == 3) then
 		rmbDown = false
-		Spring.Echo("RMB up")
 		return true
 	end
 	if(button == 1) then
 		if(
 			pingKeyDown and
-			os.clock() - lmbDownTime < longPressThreshold and
-			distance2dSquared(lmbDownPos.x, lmbDownPos.y, mx, my) < distanceThreshhold
+				os.clock() - lmbDownTime < longPressThreshold and
+				distance2dSquared(lmbDownPos.x, lmbDownPos.y, mx, my) < distanceThreshhold
 		) then
 			Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], "")
 		end
@@ -260,21 +224,14 @@ function widget:MouseRelease(mx, my, button)
 					Spring.Echo("selected custom")
 					labelTime = os.clock()
 				else
-					Spring.Echo("adding marker")
 					Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], pingText, false)
 				end
 
 				-- Spam control is necessary!
 				spamControl = spamControlFrames
-
-				-- play a UI sound to indicate ping was issued
-				flashAndOff()
-			else
-				fadeOut()
 			end
-		else
-			fadeOut()
 		end
+		showWheel(false, "mouse up")
 	end
 end
 
@@ -291,26 +248,6 @@ function widget:MouseMove(x, y)
 end
 
 
-function handleFade(fadeTime)
-	if (fadeTime > 0.017) and globalFadeIn > 0 or globalFadeOut > 0 then
-		fadeTime = 0
-		if globalFadeIn > 0 then
-			globalFadeIn = globalFadeIn - 1
-			if globalFadeIn < 0 then globalFadeIn = 0 end
-			globalDim = 1 - globalFadeIn / numFadeInFrames
-			return
-		end
-		if globalFadeOut > 0 then
-			globalFadeOut = globalFadeOut - 1
-			if globalFadeOut <= 0 then
-				globalFadeOut = 0
-				showWheel(false, "globalFadeOut 0")
-			end
-			globalDim = globalFadeOut / numFadeOutFrames
-		end
-	end
-end
-
 local function isBuilding()
 	local _, cmdID
 	if isPregame and WG['pregame-build'].getPreGameDefID then
@@ -324,15 +261,10 @@ local function isBuilding()
 end
 
 
-local fadeTime = 0
 local wheelTime = 0
 local drawTime = 0
 function widget:Update(dt)
 	local clock = os.clock()
-
-	-- Fade handling - we need smooth update of fade frames
-	fadeTime = fadeTime + dt
-	handleFade(fadeTime)
 
 	-- Hard exit when building to avoid conflicts with building modifiers
 	if(isBuilding()) then
@@ -373,43 +305,34 @@ function widget:Update(dt)
 
 	-- Wheel handling
 	wheelTime = wheelTime + dt
-    if (wheelTime > 0.03) and pingWheelActive then
+    if pingWheelActive then
 		wheelTime = 0
-        if globalFadeOut == 0 and not flashing then -- if not flashing and not fading out
-            local mx, my = spGetMouseState()
-            if not pingWheelScreenLocation then
-                return
-            end
-            -- calculate where the mouse is relative to the pingWheelScreenLocation, remember top is the first selection
-            local dx = mx - pingWheelScreenLocation.x
-            local dy = my - pingWheelScreenLocation.y
-            local angle = math.atan2(dx, dy)
-            local angleDeg = floor(angle * 180 / pi + 0.5)
-            if angleDeg < 0 then
-                angleDeg = angleDeg + 360
-            end
-            local offset = 360 / #pingWheel / 2
-            local selection = (floor((360 + angleDeg + offset) / 360 * #pingWheel)) % #pingWheel + 1
-            -- deadzone is no selection
-            local dist = sqrt(dx * dx + dy * dy)
-            if (dist < deadZoneRadius)
-                or (dist > outerLimitRadiusRatio * pingWheelRadius)
-            then
-                pingWheelSelection = 0
-                --Spring.SetMouseCursor("cursornormal")
-            elseif selection ~= pingWheelSelection then
-                pingWheelSelection = selection
-                Spring.PlaySoundFile(soundDefaultSelect, 0.05, 'ui')
-            end
-        end
-        if flashing and pingWheelActive then
-            if flashFrame > 0 then
-                flashFrame = flashFrame - 1
-            else
-                flashing = false
-                fadeOut()
-            end
-        end
+		local mx, my = spGetMouseState()
+		if not pingWheelScreenLocation then
+			return
+		end
+		-- calculate where the mouse is relative to the pingWheelScreenLocation, remember top is the first selection
+		local dx = mx - pingWheelScreenLocation.x
+		local dy = my - pingWheelScreenLocation.y
+		local angle = math.atan2(dx, dy)
+		local angleDeg = floor(angle * 180 / pi + 0.5)
+		if angleDeg < 0 then
+			angleDeg = angleDeg + 360
+		end
+		local offset = 360 / #pingWheel / 2
+		local selection = (floor((360 + angleDeg + offset) / 360 * #pingWheel)) % #pingWheel + 1
+		-- deadzone is no selection
+		local dist = sqrt(dx * dx + dy * dy)
+		if (dist < deadZoneRadius)
+			or (dist > outerLimitRadiusRatio * pingWheelRadius)
+		then
+			pingWheelSelection = 0
+			--Spring.SetMouseCursor("cursornormal")
+		elseif selection ~= pingWheelSelection then
+			pingWheelSelection = selection
+			Spring.PlaySoundFile(soundDefaultSelect, 0.05, 'ui')
+		end
+
         if spamControl > 0 then
             spamControl = (spamControl == 0) and 0 or (spamControl - 1)
         end
