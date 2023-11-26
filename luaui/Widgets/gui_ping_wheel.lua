@@ -46,7 +46,7 @@ local labelTime = 0
 local pingWheelRadius = 0.12 * math.min(viewSizeX, viewSizeY) -- 10% of the screen size
 local pingWheelThickness = 3                                 -- thickness of the ping wheel line drawing
 local centerDotSize = 20                                     -- size of the center dot
-local deadZoneRadiusRatio = 0.2                              -- the center "no selection" area as a ratio of the ping wheel radius
+local deadZoneRadiusRatio = 0.4                              -- the center "no selection" area as a ratio of the ping wheel radius
 local outerLimitRadiusRatio = 5                              -- the outer limit ratio where "no selection" is active
 
 local pingWheelTextColor = { 1, 1, 1, 0.7 }
@@ -55,9 +55,6 @@ local pingWheelTextHighlightColor = { 1, 1, 1, 1 }
 local pingWheelTextSpamColor = { 0.9, 0.9, 0.9, 0.4 }
 local pingWheelColor = { 0.9, 0.8, 0.5, 0.6 }
 
-local bgTexture = "LuaUI/images/enemyspotter.dds"
-local bgTextureSizeRatio = 1.9
-local bgTextureColor = { 0, 0, 0, 0.66 }
 local dividerInnerRatio = 0.4
 local dividerOuterRatio = 1.3
 local textAlignRadiusRatio = 1.0
@@ -449,6 +446,7 @@ local glVertex               = gl.Vertex
 local glPointSize            = gl.PointSize
 local GL_LINES               = GL.LINES
 local GL_LINE_LOOP           = GL.LINE_LOOP
+local GL_QUAD_STRIP 		 = GL.QUAD_STRIP
 local GL_POINTS              = GL.POINTS
 local GL_SRC_ALPHA           = GL.SRC_ALPHA
 local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
@@ -471,17 +469,10 @@ function widget:DrawScreen()
     if pingWheelActive and pingWheelScreenLocation then
         -- add the blackCircleTexture as background texture
         glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glColor(0,0,0,0.4) -- inverting color for the glow texture :)
-        glTexture(bgTexture)
-        -- use pingWheelRadius as the size of the background texture
-        local halfSize = pingWheelRadius * bgTextureSizeRatio
-        glTexRect(pingWheelScreenLocation.x - halfSize, pingWheelScreenLocation.y - halfSize,
-            pingWheelScreenLocation.x + halfSize, pingWheelScreenLocation.y + halfSize)
-        glTexture(false)
 
         -- draw a smooth circle at the pingWheelScreenLocation with 128 vertices
         --glColor(pingWheelColor)
-        glColor(0, 0, 0, 0.5)
+        glColor(0, 0, 0, 0.4)
         glLineWidth(pingWheelThickness)
 
         local function Circle(r)
@@ -491,13 +482,34 @@ function widget:DrawScreen()
             end
         end
 
-        -- draw the dead zone circle
+		local function Torus(inner, outer, count)
+			local pos = pingWheelScreenLocation
+			for i = 1, count+1 do
+				local angle = ((i / count) * math.pi * 2)
+				glVertex(pos.x + inner * sin(angle), pos.y + inner * cos(angle))
+				glVertex(pos.x + outer * sin(angle), pos.y + outer * cos(angle))
+			end
+		end
+
+		local function PieSlice(inner, outer, start, count)
+			local pos = pingWheelScreenLocation
+			local range = #pingWheel
+			local offset = (math.pi * 2) / (range * 2)
+			for i = 1, count do
+				local angle = start - offset + ((i / count) * math.pi * 2) / range
+				glVertex(pos.x + inner * sin(angle), pos.y + inner * cos(angle))
+				glVertex(pos.x + outer * sin(angle), pos.y + outer * cos(angle))
+			end
+		end
+
+        -- draw the main torus
         if draw_circle then
-            glBeginEnd(GL_LINE_LOOP, Circle, pingWheelRadius * deadZoneRadiusRatio)
+			glBeginEnd(GL_QUAD_STRIP, Torus, pingWheelRadius * 1.5, pingWheelRadius * deadZoneRadiusRatio, 96)
         end
 
 		-- draw outer circle
-		glBeginEnd(GL_LINE_LOOP, Circle, pingWheelRadius * 1.5)
+		glBeginEnd(GL_LINE_LOOP, Circle, pingWheelRadius * 1.55)
+
 
         -- draw the center dot
         glColor(pingWheelColor)
@@ -549,6 +561,8 @@ function widget:DrawScreen()
             glText(text, pingWheelScreenLocation.x + pingWheelRadius * textAlignRadiusRatio * sin(angle),
                 pingWheelScreenLocation.y + pingWheelRadius * textAlignRadiusRatio * cos(angle), pingWheelTextSize * 1.25,
                 "cvos")
+			glColor(0, 0, 0, 0.4)
+			glBeginEnd(GL_QUAD_STRIP, PieSlice, pingWheelRadius * 1.5, pingWheelRadius * deadZoneRadiusRatio, angle, 24)
         end
 
         --glColor(pingWheelTextColor)
