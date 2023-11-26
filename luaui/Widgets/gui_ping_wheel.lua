@@ -46,15 +46,23 @@ local labelTime = 0
 local pingWheelRadius = 0.12 * math.min(viewSizeX, viewSizeY) -- 10% of the screen size
 local pingWheelThickness = 3                                 -- thickness of the ping wheel line drawing
 local centerDotSize = 20                                     -- size of the center dot
-local deadZoneRadiusRatio = 0.3                              -- the center "no selection" area as a ratio of the ping wheel radius
+local deadZoneRadiusRatio = 0.2                              -- the center "no selection" area as a ratio of the ping wheel radius
 local outerLimitRadiusRatio = 5                              -- the outer limit ratio where "no selection" is active
 
 local pingWheelTextColor = { 1, 1, 1, 0.7 }
 local pingWheelTextSize = 25
 local pingWheelTextHighlightColor = { 1, 1, 1, 1 }
 local pingWheelTextSpamColor = { 0.9, 0.9, 0.9, 0.4 }
-
 local pingWheelColor = { 0.9, 0.8, 0.5, 0.6 }
+
+local bgTexture = "LuaUI/images/enemyspotter.dds"
+local bgTextureSizeRatio = 1.9
+local bgTextureColor = { 0, 0, 0, 0.66 }
+local dividerInnerRatio = 0.4
+local dividerOuterRatio = 1.3
+local textAlignRadiusRatio = 1.0
+local dividerColor = { 1, 1, 1, 0.15 }
+
 ---------------------------------------------------------------
 -- End of params
 
@@ -62,23 +70,17 @@ local globalDim = 1     -- this controls global alpha of all gl.Color calls
 local globalFadeIn = 0  -- how many frames left to fade in
 local globalFadeOut = 0 -- how many frames left to fade out
 
-local bgTexture = "LuaUI/images/enemyspotter.dds"
-local bgTextureSizeRatio = 1.9
-local bgTextureColor = { 0, 0, 0, 0.66 }
-local dividerInnerRatio = 0.6
-local dividerOuterRatio = 1.2
-local textAlignRadiusRatio = 1.0
-local dividerColor = { 1, 1, 1, 0.15 }
-
 local pingWheel = pingCommands
 local pingKeyDown = false
 local pingKeyUpTime = 0
+local pingKeyGraceTime = 0.05
 local eraseKeyDown = false
 local pingWheelActive = false
-local mouseDownTime = 0
-local longPressThreshold = 0.2
+local lmbDownTime = 0
+local longPressThreshold = 0.25
 local distanceThreshhold = 15
-local mouseDownPos
+local lmbDownPos
+local lmbDown = false
 local lastCursorWorldPos
 local rmbDown = false
 
@@ -154,7 +156,7 @@ local function setPingLocation()
 end
 
 
-local function FadeIn()
+local function fadeIn()
     if numFadeInFrames == 0 then return end
     globalFadeIn = numFadeInFrames
     globalFadeOut = 0
@@ -176,7 +178,7 @@ local function showWheel(show, reason)
 			setPingLocation()
 		end
 		-- turn on fade in
-		FadeIn()
+		fadeIn()
 	else
 		if pingWheelActive then
 			pingWheelActive = false
@@ -193,11 +195,7 @@ function pingButtonAction(_, _, _, args)
     if args[1] then
         pingKeyDown = true
     else
-		pingKeyDown = false
 		pingKeyUpTime = os.clock()
-		if(pingWheelActive) then
-			fadeOut(false, "key release")
-		end
     end
 end
 
@@ -222,8 +220,9 @@ function widget:MousePress(mx, my, button)
 		rmbDown = true
 	end
     if pingKeyDown and button == 1 then
-		mouseDownTime = os.clock()
-		mouseDownPos = { x = mx, y = my }
+		lmbDownTime = os.clock()
+		lmbDownPos = { x = mx, y = my }
+		lmbDown = true
 		setPingLocation()
         return true -- block all other mouse presses
     end
@@ -239,21 +238,23 @@ function widget:MouseRelease(mx, my, button)
 	if(button == 1) then
 		if(
 			pingKeyDown and
-			os.clock() - mouseDownTime < longPressThreshold and
-			distance2dSquared(mouseDownPos.x, mouseDownPos.y, mx, my) < distanceThreshhold
+			os.clock() - lmbDownTime < longPressThreshold and
+			distance2dSquared(lmbDownPos.x, lmbDownPos.y, mx, my) < distanceThreshhold
 		) then
 			Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], "")
 		end
-		mouseDownTime = 0
+		lmbDownTime = 0
+		lmbDown = false
 
 		if pingWheelActive
 			and pingWorldLocation
+			and lmbDownPos
 			and spamControl == 0
 		then
 			if pingWheelSelection > 0 then
 				local pingText = pingWheel[pingWheelSelection].name
 				if(pingWheelSelection == 1) then
-					Spring.WarpMouse(mouseDownPos.x, mouseDownPos.y)
+					Spring.WarpMouse(lmbDownPos.x, lmbDownPos.y)
 					Spring.Echo("selected custom")
 					labelTime = os.clock()
 				else
@@ -281,10 +282,10 @@ end
 
 
 function widget:MouseMove(x, y)
-	if(mouseDownPos and not pingWheelActive) then
-		if(distance2dSquared(mouseDownPos.x, mouseDownPos.y, x, y) > distanceThreshhold) then
-			mouseDownTime = 0
-			mouseDownPos = nil
+	if(lmbDown and not pingWheelActive) then
+		if(distance2dSquared(lmbDownPos.x, lmbDownPos.y, x, y) > distanceThreshhold) then
+			lmbDownTime = 0
+			-- mouseDownPos = nil
 			showWheel(true, "mouse movement")
 		end
 	end
@@ -298,9 +299,18 @@ function widget:Update(dt)
 	local clock = os.clock()
 
 	-- watch mouse behavior
-	if(mouseDownTime > 0 and clock - mouseDownTime > longPressThreshold) then
-		mouseDownTime = 0
+	if(lmbDownTime > 0 and clock - lmbDownTime > longPressThreshold) then
+		lmbDownTime = 0
 		showWheel(true, "delayed click")
+	end
+
+	-- watch ping key, we want to "hold" it down a tad longer to make early releases skip fewer actions
+	if (pingKeyUpTime > 0 and clock - pingKeyUpTime > pingKeyGraceTime) then
+		pingKeyDown = false
+		pingKeyUpTime = 0
+		if(pingWheelActive) then
+			fadeOut(false, "key release")
+		end
 	end
 
 	-- watch for drawlabel command, we need to fire it on a later frame than the cursor movement
@@ -393,8 +403,8 @@ function widget:Update(dt)
 		-- Draw
 		if(pingKeyDown and rmbDown) then
 			local pos = getCursorWorldPosition()
-			if(pos) then
-				local prev = lastCursorWorldPos
+			local prev = lastCursorWorldPos
+			if(pos and prev) then
 				local id = Spring.GetMyPlayerID()
 				Spring.MarkerAddLine(prev[1], prev[2], prev[3], pos[1], pos[2], pos[3], false, id)
 				lastCursorWorldPos = pos
