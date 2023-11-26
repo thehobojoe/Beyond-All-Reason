@@ -49,6 +49,7 @@ return {
 			kickback = "-4",
 			model_author = "Mr Bob",
 			normaltex = "unittextures/cor_normal.dds",
+			paralyzemultiplier = 0.25,
 			restoretime = "3000",
 			rockstrength = "5.5",
 			sleevename = "sleeve",
@@ -152,9 +153,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 300,
 				damage = {
-					bombers = 60,
 					default = 370,
-					fighters = 60,
 					subs = 185,
 					vtol = 60,
 				},

@@ -12,7 +12,6 @@ return {
 		category = "ALL WEAPON NOTSUB VTOL NOTHOVER",
 		collide = true,
 		cruisealt = 70,
-		energyuse = 0.8,
 		explodeas = "smallExplosionGeneric",
 		footprintx = 2,
 		footprintz = 2,
@@ -107,9 +106,7 @@ return {
 				weapontype = "LaserCannon",
 				weaponvelocity = 800,
 				damage = {
-					bombers = 1,
 					default = 11,
-					fighters = 1,
 					vtol = 1,
 				},
 			},

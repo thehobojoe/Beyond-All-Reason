@@ -85,6 +85,7 @@ return {
 				laserflaresize = 5,
 				name = "HeatRay",
 				noselfdamage = true,
+				predictboost = 1,
 				range = 360,
 				reloadtime = 1.35,
 				rgbcolor = "1 0.8 0",
@@ -100,9 +101,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 950,
 				damage = {
-					bombers = 25,
 					default = 60,
-					fighters = 25,
 					vtol = 25,
 				},
 			},

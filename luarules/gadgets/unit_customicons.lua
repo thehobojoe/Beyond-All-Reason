@@ -616,6 +616,7 @@ local units = {
 	corsy = { "factory_ship.png", 1.52250004 },
 	cortarg = { "targetting.png", 1.36499989 },
 	cortermite = { "cortermite_1.5.png", 1.57499993 },
+	corthermite = { "corthermite.png", 2.4249992 },
 	corthovr = { "hovertrans.png", 1.78499997 },
 	corthud = { "bot_plasma_t1.png", 1.10249984 },
 	cortide = { "energy1_1.0.png", 1.04999995 },
@@ -697,6 +698,7 @@ local units = {
 	leghelios = {"vehicle_t1_tank.png", 0.95},
 	leginc = { "corsumo.png", 1.85 },
 	leginf = { "cortrem_t2.png", 1.9425 },
+	leginfestor = { "cortermite_1.5.png", 1.57499993 },
 	legkam = { "air_kamikaze.png", 1 },
 	legkark = { "legkark.png", 1.2 },
 	leglab = { "factory_bot.png", 1.52250004 },
@@ -714,10 +716,13 @@ local units = {
 	legsco = { "vehicle_t2_sco.png", 1.65 },
 	legshot = { "kbot_t2_shotgun.png", 1.6 },
 	legsrail = { "allterrain_t2_rail.png", 1.85 },
+	legstarfall = { "armvulc.png", 3.25499964 },
 	legstr = { "bot_t2_raid.png", 1.3 },
 	legvp = { "factory_vehicle.png", 1.52250004 },
 	legvcarry = { "vehicle_t2_carry.png", 1.65 },
 	legdefcarryt1 = { "legdefcarryt1.png", 1.66 },
+	
+
 
 	lootboxbronze = { "lootbox.png", 1.04999995 },
 	lootboxgold = { "lootboxt3.png", 1.20749986 },

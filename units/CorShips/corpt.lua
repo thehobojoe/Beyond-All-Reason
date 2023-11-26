@@ -11,7 +11,7 @@ return {
 		buildtime = 2500,
 		canmove = true,
 		category = "ALL MOBILE WEAPON NOTLAND SHIP NOTSUB NOTAIR NOTHOVER SURFACE EMPABLE",
-		collisionvolumeoffsets = "0 1 -1",
+		collisionvolumeoffsets = "0 -3 -1",
 		collisionvolumescales = "20 20 60",
 		collisionvolumetype = "box",
 		corpse = "DEAD",
@@ -156,9 +156,7 @@ return {
 				weapontype = "MissileLauncher",
 				weaponvelocity = 680,
 				damage = {
-					bombers = 120,
 					default = 47,
-					fighters = 120,
 					vtol = 120,
 				},
 			},

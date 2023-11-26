@@ -16,7 +16,6 @@ return {
 		corpse = "DEAD",
 		energymake = 15,
 		energystorage = 100,
-		energyuse = 15,
 		explodeas = "smallbuilder",
 		footprintx = 2,
 		footprintz = 2,
@@ -62,6 +61,7 @@ return {
 			[20] = "coramph",
 			[21] = "corcs",
 			[22] = "corroy",
+			[23] = "cortermite",
 		},
 		customparams = {
 			unitgroup = 'buildert2',

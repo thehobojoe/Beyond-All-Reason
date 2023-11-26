@@ -38,23 +38,22 @@ local moveDatas = {
 		maxwaterslope = 50,
 	},
 
-	-- NOT USED AT THIS TIME
-	--
-	-- ABOTBOMB2 = {
-	-- 	crushstrength = 50,
-	-- 	depthmod = 0,
-	-- 	footprintx = 2,
-	-- 	footprintz = 2,
-	-- 	maxslope = 36,
-	-- 	maxwaterdepth = 5000,
-	-- 	maxwaterslope = 50,
-	-- 	depthModParams = {
-	-- 		constantCoeff = 1.5,
-	-- 	},
-	-- },
+	--corroach corsktl armvader
+	ABOTBOMB2 = {
+	 	crushstrength = 50,
+	 	depthmod = 0,
+	 	footprintx = 2,
+	 	footprintz = 2,
+	 	maxslope = 36,
+	 	maxwaterdepth = 5000,
+	 	maxwaterslope = 50,
+	 	depthModParams = {
+	 		constantCoeff = 1.5,
+	 	},
+	},
 
 	-- amphibious bots  possible merger with abotbomb2
-	--critter_crab raptors1 cormando raptors2 armaak corcrash raptorems2_spectre armjeth coramph coraak corroach corsktl armvader
+	--critter_crab raptors1 cormando raptors2 armaak corcrash raptorems2_spectre armjeth coramph coraak 
 	ABOT2 = {
 		crushstrength = 50,
 		depthmod = 0,
@@ -500,7 +499,7 @@ local moveDatas = {
 	-- 	maxwaterslope = 80,
 	-- },
 	-- review this
-	-- armvang corkarg
+	-- armvang corkarg corthermite
 	HTBOT4 = {
 		crushstrength = 252,
 		footprintx = 4,
@@ -564,7 +563,7 @@ local moveDatas = {
 	-- },
 	--break line
 	--
-	-- legsrail armscab armsptk cortermite armspid pbr_cube  dbg_sphere_fullmetal _dbgsphere
+	-- legsrail armscab armsptk cortermite armspid pbr_cube  dbg_sphere_fullmetal _dbgsphere leginfestor
 	TBOT3 = {
 		crushstrength = 15,
 		footprintx = 3,
@@ -710,8 +709,8 @@ local moveDatas = {
 			linearCoeff = (0.1/470)/2,
 			constantCoeff = 1,
 			},
-		footprintx = 0,
-		footprintz = 0,
+		footprintx = 8,
+		footprintz = 8,
 		maxslope = 100,
 		maxwaterdepth = 99999,
 		maxwaterslope = 100,
