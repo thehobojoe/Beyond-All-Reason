@@ -62,6 +62,8 @@ local dividerColor = { 1, 1, 1, 0.15 }
 ---------------------------------------------------------------
 -- End of params
 
+local isPregame = Spring.GetGameFrame() == 0 and not isSpec
+
 local globalDim = 1     -- this controls global alpha of all gl.Color calls
 local globalFadeIn = 0  -- how many frames left to fade in
 local globalFadeOut = 0 -- how many frames left to fade out
@@ -73,8 +75,8 @@ local pingKeyGraceTime = 0.05
 local eraseKeyDown = false
 local pingWheelActive = false
 local lmbDownTime = 0
-local longPressThreshold = 0.25
-local distanceThreshhold = 250
+local longPressThreshold = 0.2
+local distanceThreshhold = 5000
 local lmbDownPos
 local lmbDown = false
 local lastCursorWorldPos
@@ -212,9 +214,6 @@ end
 
 
 function widget:MousePress(mx, my, button)
-	if(button == 3) then
-		rmbDown = true
-	end
     if pingKeyDown and button == 1 then
 		lmbDownTime = os.clock()
 		lmbDownPos = { x = mx, y = my }
@@ -232,6 +231,12 @@ end
 
 -- when mouse is pressed, issue the ping command
 function widget:MouseRelease(mx, my, button)
+	Spring.Echo("mouse release")
+	if(button == 3) then
+		rmbDown = false
+		Spring.Echo("RMB up")
+		return true
+	end
 	if(button == 1) then
 		if(
 			pingKeyDown and
@@ -255,6 +260,7 @@ function widget:MouseRelease(mx, my, button)
 					Spring.Echo("selected custom")
 					labelTime = os.clock()
 				else
+					Spring.Echo("adding marker")
 					Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], pingText, false)
 				end
 
@@ -270,21 +276,51 @@ function widget:MouseRelease(mx, my, button)
 			fadeOut()
 		end
 	end
-
-	if(button == 3) then
-		rmbDown = false
-	end
 end
 
 
 
 function widget:MouseMove(x, y)
 	if(lmbDown and not pingWheelActive) then
-		if(distance2dSquared(lmbDownPos.x, lmbDownPos.y, x, y) > distanceThreshhold) then
+		local dist = distance2dSquared(lmbDownPos.x, lmbDownPos.y, x, y)
+		if(dist > distanceThreshhold) then
 			lmbDownTime = 0
 			showWheel(true, "mouse movement")
 		end
 	end
+end
+
+
+function handleFade(fadeTime)
+	if (fadeTime > 0.017) and globalFadeIn > 0 or globalFadeOut > 0 then
+		fadeTime = 0
+		if globalFadeIn > 0 then
+			globalFadeIn = globalFadeIn - 1
+			if globalFadeIn < 0 then globalFadeIn = 0 end
+			globalDim = 1 - globalFadeIn / numFadeInFrames
+			return
+		end
+		if globalFadeOut > 0 then
+			globalFadeOut = globalFadeOut - 1
+			if globalFadeOut <= 0 then
+				globalFadeOut = 0
+				showWheel(false, "globalFadeOut 0")
+			end
+			globalDim = globalFadeOut / numFadeOutFrames
+		end
+	end
+end
+
+local function isBuilding()
+	local _, cmdID
+	if isPregame and WG['pregame-build'].getPreGameDefID then
+		cmdID = WG['pregame-build'].getPreGameDefID()
+		cmdID = cmdID and -cmdID or 0 --invert to get the correct negative value
+	else
+		_, cmdID = Spring.GetActiveCommand()
+	end
+
+	return cmdID and cmdID < 0 or false
 end
 
 
@@ -294,10 +330,21 @@ local drawTime = 0
 function widget:Update(dt)
 	local clock = os.clock()
 
-	-- watch mouse behavior
-	if(lmbDownTime > 0 and clock - lmbDownTime > longPressThreshold) then
+	-- Fade handling - we need smooth update of fade frames
+	fadeTime = fadeTime + dt
+	handleFade(fadeTime)
+
+	-- Hard exit when building to avoid conflicts with building modifiers
+	if(isBuilding()) then
+		Spring.Echo("exit everything, building")
+		showWheel(false, "building")
+		pingKeyDown = false
+		pingKeyUpTime = 0
+		rmbDown = false
+		lmbDown = false
 		lmbDownTime = 0
-		showWheel(true, "delayed click")
+		lmbDownPos = nil
+		return
 	end
 
 	-- watch ping key, we want to "hold" it down a tad longer to make early releases skip fewer actions
@@ -305,8 +352,14 @@ function widget:Update(dt)
 		pingKeyDown = false
 		pingKeyUpTime = 0
 		if(pingWheelActive) then
-			fadeOut(false, "key release")
+			showWheel(false, "key release")
 		end
+	end
+
+	-- watch mouse behavior
+	if(lmbDownTime > 0 and clock - lmbDownTime > longPressThreshold) then
+		lmbDownTime = 0
+		showWheel(true, "delayed click")
 	end
 
 	-- watch for drawlabel command, we need to fire it on a later frame than the cursor movement
@@ -317,25 +370,6 @@ function widget:Update(dt)
 		end
 	end
 
-
-    -- Fade handling - we need smooth update of fade frames
-	fadeTime = fadeTime + dt
-    if (fadeTime > 0.017) and globalFadeIn > 0 or globalFadeOut > 0 then
-		fadeTime = 0
-        if globalFadeIn > 0 then
-            globalFadeIn = globalFadeIn - 1
-            if globalFadeIn < 0 then globalFadeIn = 0 end
-            globalDim = 1 - globalFadeIn / numFadeInFrames
-        end
-        if globalFadeOut > 0 then
-            globalFadeOut = globalFadeOut - 1
-            if globalFadeOut <= 0 then
-                globalFadeOut = 0
-                showWheel(false, "globalFadeOut 0")
-            end
-            globalDim = globalFadeOut / numFadeOutFrames
-        end
-    end
 
 	-- Wheel handling
 	wheelTime = wheelTime + dt
@@ -386,9 +420,10 @@ function widget:Update(dt)
 	drawTime = drawTime + dt
 	if(drawTime > 0.05) then
 		drawTime = 0
+		local x, y, lmb, mmb, rmb = spGetMouseState()
 
 		-- Erase
-		if(eraseKeyDown and rmbDown) then
+		if(eraseKeyDown and rmb) then
 			local pos = getCursorWorldPosition()
 			if (pos) then
 				Spring.MarkerErasePosition(pos[1], pos[2], pos[3])
@@ -397,7 +432,8 @@ function widget:Update(dt)
 		end
 
 		-- Draw
-		if(pingKeyDown and rmbDown) then
+		if(pingKeyDown and rmb) then
+			Spring.Echo("drawing, rmb down" .. tostring(rmb))
 			local pos = getCursorWorldPosition()
 			local prev = lastCursorWorldPos
 			if(pos and prev) then
@@ -431,12 +467,9 @@ local glLineWidth            = gl.LineWidth
 local glPushMatrix           = gl.PushMatrix
 local glPopMatrix            = gl.PopMatrix
 local glBlending             = gl.Blending
-local glDepthTest            = gl.DepthTest
 local glBeginEnd             = gl.BeginEnd
 local glBeginText            = gl.BeginText
 local glEndText              = gl.EndText
-local glTexture              = gl.Texture
-local glTexRect              = gl.TexRect
 local glText                 = gl.Text
 local glVertex               = gl.Vertex
 local glPointSize            = gl.PointSize
@@ -444,20 +477,18 @@ local GL_LINES               = GL.LINES
 local GL_LINE_LOOP           = GL.LINE_LOOP
 local GL_QUAD_STRIP 		 = GL.QUAD_STRIP
 local GL_POINTS              = GL.POINTS
-local GL_SRC_ALPHA           = GL.SRC_ALPHA
-local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
 
 function widget:DrawScreen()
     -- if keyDown then draw a dot at where mouse is
     glPushMatrix()
-    if pingKeyDown and not pingWheelActive and not rmbDown then
+	local mx, my, lmb, mmb, rmb = spGetMouseState()
+    if pingKeyDown and not pingWheelActive and not rmb then
         -- draw dot at mouse location
-        local mx, my = spGetMouseState()
         glColor2(pingWheelColor)
         glPointSize(centerDotSize)
         glBeginEnd(GL_POINTS, glVertex, mx, my)
         -- draw two hints at the top left and right of the location
-        glColor2(1, 1, 1, 1)
+        glColor2(1, 1, 1, 0.7)
 		glText("LMB\nping", mx - 15, my + 11, 12, "ros")
 		glText("RMB\ndraw", mx + 15, my + 11, 12, "os")
 
