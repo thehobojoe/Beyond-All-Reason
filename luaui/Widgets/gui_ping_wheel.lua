@@ -30,7 +30,6 @@ local pingCommands = {
 -- On/Off switches
 local draw_dividers = true     -- set to false to disable the dividers between options
 local draw_line = false       -- set to true to draw a line from the center to the cursor during selection
-local draw_circle = true      -- set to false to disable the circle around the ping wheel
 
 -- Fade and spam frames (set to 0 to disable)
 -- NOTE: these are now game frames, not display frames, so always 30 fps
@@ -85,6 +84,7 @@ local spamControl = 0
 -- Speedups
 local spGetMouseState = Spring.GetMouseState
 local spTraceScreenRay = Spring.TraceScreenRay
+local spSetMouseCursor = Spring.SetMouseCursor
 local abs = math.abs
 local atan2 = math.atan2
 local floor = math.floor
@@ -334,7 +334,6 @@ function widget:Update(dt)
 			or (dist > outerLimitRadiusRatio * pingWheelRadius)
 		then
 			pingWheelSelection = 0
-			--Spring.SetMouseCursor("cursornormal")
 		elseif selection ~= pingWheelSelection then
 			pingWheelSelection = selection
 			Spring.PlaySoundFile(soundDefaultSelect, 0.05, 'ui')
@@ -415,18 +414,17 @@ function widget:DrawScreen()
     if pingKeyDown and not pingWheelActive and not rmb then
         -- draw dot at mouse location
         glColor2(pingWheelColor)
-        glPointSize(centerDotSize)
+        glPointSize(centerDotSize / 2)
         glBeginEnd(GL_POINTS, glVertex, mx, my)
         -- draw two hints at the top left and right of the location
-        glColor2(1, 1, 1, 0.7)
+        glColor2(1, 1, 1, 0.8)
 		glText("LMB\nping", mx - 15, my + 11, 12, "ros")
 		glText("RMB\ndraw", mx + 15, my + 11, 12, "os")
-
-
     end
+
     -- we draw a wheel at the pingWheelScreenLocation divided into #pingWheel slices, with the first slice starting at the top
     if pingWheelActive and pingWheelScreenLocation then
-		Spring.SetMouseCursor('none')
+		spSetMouseCursor('none') -- hide cursor so we look nice
 		local pos = pingWheelScreenLocation
 
         -- set up wheel color and line thickness
@@ -434,7 +432,7 @@ function widget:DrawScreen()
         glLineWidth(pingWheelThickness)
 
 
-		-- Draw functions
+		-- Draw helper functions
 		local function line(x1, y1, x2, y2)
 			glVertex(x1, y1)
 			glVertex(x2, y2)
@@ -464,11 +462,11 @@ function widget:DrawScreen()
 			end
 		end
 
+
 		-- Start draw operations
         -- draw the main body of the wheel
-        if draw_circle then
-			glBeginEnd(GL_QUAD_STRIP, torus, pingWheelRadius * 1.5, deadZoneRadius, pingWheelResolution)
-        end
+		glBeginEnd(GL_QUAD_STRIP, torus, pingWheelRadius * 1.5, deadZoneRadius, pingWheelResolution)
+
 
 		-- draw outer circle
 		glBeginEnd(GL_LINE_LOOP, circle, pingWheelRadius * 1.55)
@@ -513,6 +511,7 @@ function widget:DrawScreen()
                 glBeginEnd(GL_LINES, Line2, angle2)
             end
         end
+
 
         -- draw the text for each slice and highlight the selected one
         local textColor = pingWheelTextHighlightColor
