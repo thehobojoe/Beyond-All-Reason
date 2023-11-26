@@ -107,7 +107,7 @@ local soundSetTarget = "sounds/commands/cmd-settarget.wav"
 local function distance2dSquared(x1, y1, x2, y2)
 	local dx = x1 - x2
 	local dy = y1 - y2
-	return dx * dx + dy + dy
+	return dx * dx + dy * dy
 end
 
 local function distance2d(x1, y1, x2, y2)
