@@ -42,7 +42,7 @@ local labelTime = 0
 -- Sizes and colors
 local pingWheelRadius = 0.12 * math.min(viewSizeX, viewSizeY) -- 10% of the screen size
 local pingWheelThickness = 3                                 -- thickness of the ping wheel line drawing
-local centerDotSize = 15                                     -- size of the center dot
+local centerDotSize = 18                                     -- size of the center dot
 local outerLimitRadiusRatio = 5                              -- the outer limit ratio where "no selection" is active
 local deadZoneRadius = pingWheelRadius * 0.5				 -- the center "no selection" area as a ratio of the ping wheel radius
 
@@ -85,8 +85,11 @@ local spamControl = 0
 -- Speedups
 local spGetMouseState = Spring.GetMouseState
 local spTraceScreenRay = Spring.TraceScreenRay
+local abs = math.abs
 local atan2 = math.atan2
 local floor = math.floor
+local max = math.max
+local min = math.min
 local pi = math.pi
 local sin = math.sin
 local cos = math.cos
@@ -95,6 +98,8 @@ local sqrt = math.sqrt
 local soundDefaultSelect = "sounds/commands/cmd-default-select.wav"
 local soundSetTarget = "sounds/commands/cmd-settarget.wav"
 
+
+-- Math helper functions
 local function distance2dSquared(x1, y1, x2, y2)
 	local dx = x1 - x2
 	local dy = y1 - y2
@@ -150,11 +155,13 @@ end
 local function showWheel(show, reason)
     -- set pingwheel to display
 	if(show) then
+		Spring.Echo("Showing wheel - reason: " .. reason)
 		pingWheelActive = true
 		if not pingWorldLocation then
 			setPingLocation()
 		end
 	elseif pingWheelActive then
+		Spring.Echo("Hiding wheel - reason: " .. reason)
 		pingWheelActive = false
 		pingWorldLocation = nil
 		pingWheelScreenLocation = nil
@@ -419,6 +426,7 @@ function widget:DrawScreen()
     end
     -- we draw a wheel at the pingWheelScreenLocation divided into #pingWheel slices, with the first slice starting at the top
     if pingWheelActive and pingWheelScreenLocation then
+		Spring.SetMouseCursor('none')
 		local pos = pingWheelScreenLocation
 
         -- set up wheel color and line thickness
@@ -466,16 +474,24 @@ function widget:DrawScreen()
 		glBeginEnd(GL_LINE_LOOP, circle, pingWheelRadius * 1.55)
 
         -- draw the center dot
+		-- Do some math to constrain it to the deadzone
+		local radius = deadZoneRadius - (centerDotSize / 2)
+		local dx = pos.x - mx
+		local dy = pos.y - my
+		local alpha = atan2(dy, -dx)
+		local maxX = abs(radius * cos(alpha))
+		local maxY = abs(radius * sin(alpha))
+		dx = min(max(-maxX, dx), maxX)
+		dy = min(max(-maxY, dy), maxY)
         glColor(pingWheelColor)
         glPointSize(centerDotSize)
-        glBeginEnd(GL_POINTS, glVertex, pos.x, pos.y)
+        glBeginEnd(GL_POINTS, glVertex, -dx + pos.x, -dy + pos.y)
         glPointSize(1)
 
         -- draw a dotted line connecting from center of wheel to the mouse location
         if draw_line and pingWheelSelection > 0 then
             glColor(1, 1, 1, 0.5)
             glLineWidth(pingWheelThickness / 4)
-            local mx, my = spGetMouseState()
             glBeginEnd(GL_LINES, line, pos.x, pos.y, mx, my)
         end
 
