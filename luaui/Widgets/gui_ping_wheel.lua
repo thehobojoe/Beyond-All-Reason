@@ -2,11 +2,11 @@ function widget:GetInfo()
     return {
         name    = "Ping Wheel",
         desc    =
-        "Displays a ping wheel when a keybind is held down. Default keybind is 'alt-f', rebindable. Left click (or mouse 4) to bring up commands wheel, right click (or mouse 5) for messages wheel. \nNow with two wheel styles! (edit file param to change style)",
-        author  = "Errrrrrr",
-        date    = "June 27, 2023",
+        "Unified ping behavior + wheel. Hold hotkey and LMB to ping, LMB+drag for wheel (includes custom messages), RMB+drag to draw",
+        author  = "Hobo Joe, Errrrrrr",
+        date    = "November 2023",
         license = "GNU GPL, v2 or later",
-        version = "2.5",
+        version = "0.1",
         layer   = 999,
         enabled = true,
         handler = true,
