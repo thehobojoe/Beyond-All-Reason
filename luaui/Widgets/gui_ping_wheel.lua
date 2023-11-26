@@ -125,7 +125,7 @@ end
 
 function widget:Initialize()
     -- add the action handler with argument for press and release using the same function call
-    widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { true }, "pR")
+    widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { true }, "p")
     widgetHandler.actionHandler:AddAction(self, "ping", pingButtonAction, { false }, "r")
 	widgetHandler.actionHandler:AddAction(self, "erase", eraseButtonAction, { true }, "pR")
 	widgetHandler.actionHandler:AddAction(self, "erase", eraseButtonAction, { false }, "r")
@@ -227,10 +227,9 @@ function widget:MouseRelease(mx, my, button)
 			if pingWheelSelection > 0 then
 				local pingText = pingWheel[pingWheelSelection].name
 				if(pingWheelSelection == 1) then
-					Spring.WarpMouse(lmbDownPos.x, lmbDownPos.y)
-					Spring.Echo("selected custom")
 					labelTime = os.clock()
 				else
+					Spring.WarpMouse(lmbDownPos.x, lmbDownPos.y)
 					Spring.MarkerAddPoint(pingWorldLocation[1], pingWorldLocation[2], pingWorldLocation[3], pingText, false)
 				end
 
