@@ -49,10 +49,22 @@ local gameStarted
 -- and give them a FIGHT order, too close to the unit will drop the order so we add 50 distance
 
 local isImmobileBuilder = {}
+local buildRange = {}
+local isFactory = {}
 for unitDefID, unitDef in pairs(UnitDefs) do
 	if unitDef.isBuilder and not unitDef.canMove and not unitDef.isFactory then
 		isImmobileBuilder[unitDefID] = true
+		buildRange[unitDefID] = unitDef.buildDistance
 	end
+	if unitDef.isFactory then
+		isFactory[unitDefID] = true
+	end
+end
+
+local function distance2dSquared(x1, y1, x2, y2)
+	local dx = x1 - x2
+	local dy = y1 - y2
+	return dx * dx + dy * dy
 end
 
 
@@ -139,6 +151,49 @@ function widget:UnitCommand(unitID, unitDefID, _, cmdID, _, cmdOpts)
 	end
 end
 
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
+function widget:CommandNotify(id, params, options)
+	if id == CMD_FIGHT then
+		return
+	end
+	local targetPos = {}
+	-- if there's only 1 param, target is a unit. If there are 3 params, target is a position
+	if #params == 1 then
+		local uid = params[1]
+		local defId = spGetUnitDefID(params[1])
+		if(isFactory[defId] and UnitDefs[defId]) then
+			local heading = Spring.GetUnitHeading(uid)
+			local vecX, vecZ = Spring.GetVectorFromHeading(heading)
+			local _, boOffset, _, _ = Spring.GetFactoryBuggerOff(uid)
+			local facX, facY, facZ = spGetUnitPosition(uid)
+			targetPos.x  = facX + (vecX * boOffset)
+			targetPos.z = facZ + (vecZ * boOffset)
+		else
+			targetPos.x, _, targetPos.z = spGetUnitPosition(uid)
+		end
+	else
+		targetPos.x = params[1]
+		targetPos.z = params[3]
+	end
+	local units = Spring.GetSelectedUnits()
+	local otherUnits = {}
+	for i = 1, #units do
+		local unitDefID = spGetUnitDefID(units[i])
+		if isImmobileBuilder[unitDefID] then
+			local buildDist = buildRange[unitDefID]
+			local x, _, z = spGetUnitPosition(units[i])
+			local dist = distance2dSquared(targetPos.x, targetPos.z, x, z)
+			if dist > buildDist * buildDist then
+				-- can't reach, do nothing
+				Spring.PlaySoundFile("cmd-stop", 0.5)
+			else
+				-- give order directly to nano
+				spGiveOrderToUnit(units[i], id, params, options)
+			end
+		else
+			otherUnits[#otherUnits + 1] = units[i]
+		end
+	end
+	-- Since we can't disallow commands per-unit in CommandNotify, we build an array of all the non-nano units and forward the commands here
+	Spring.GiveOrderToUnitArray(otherUnits, id, params, options)
+	return true
+end
