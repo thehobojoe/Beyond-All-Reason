@@ -77,7 +77,7 @@ local Cfgs = {
 	disableInputWhenSpec = false, -- disable specs selecting buildoptions
 	cfgCellPadding = 0.007,
 	cfgIconPadding = 0.015, -- space between icons
-	cfgIconCornerSize = 0.025,
+	cfgIconCornerSize = 0.05,
 	cfgPriceFontSize = 0.16,
 	cfgActiveAreaMargin = 0.1, -- (# * bgpadding) space between the background border and active area
 	sound_queue_add = "LuaUI/Sounds/buildbar_add.wav",
@@ -113,6 +113,7 @@ local selBuildQueueDefID
 local stickToBottom = false
 local alwaysShow = false
 
+local showBuildtime = false -- false will still show hover
 local showPrice = false -- false will still show hover
 local showRadarIcon = true -- false will still show hover
 local showGroupIcon = true -- false will still show hover
@@ -1281,16 +1282,18 @@ local function drawCell(rect, cmd, usedZoom, cellColor, disabled)
 	end
 	gl.Texture(false)
 
+	local function AddSpaces(price)
+		if price >= 1000 then
+			return string.format("%s %03d", AddSpaces(math_floor(price / 1000)), price % 1000)
+		end
+		return price
+	end
+
 	-- price
 	if showPrice then
 		local metalColor = disabled and "\255\125\125\125" or "\255\245\245\245"
 		local energyColor = disabled and "\255\135\135\135" or "\255\255\255\000"
-		local function AddSpaces(price)
-			if price >= 1000 then
-				return string.format("%s %03d", AddSpaces(math_floor(price / 1000)), price % 1000)
-			end
-			return price
-		end
+
 		local metalPrice = AddSpaces(units.unitMetalCost[uid])
 		local energyPrice = AddSpaces(units.unitEnergyCost[uid])
 		local metalPriceText = metalColor .. metalPrice
@@ -1306,6 +1309,19 @@ local function drawCell(rect, cmd, usedZoom, cellColor, disabled)
 			energyPriceText,
 			rect.xEnd - cellPadding - (cellInnerSize * 0.048),
 			rect.y + cellPadding + (priceFontSize * 0.35),
+			priceFontSize,
+			"ro"
+		)
+	end
+
+	if showBuildtime then
+		local buildTimeColor = disabled and "\255\135\135\135" or "\255\128\255\128"
+		local buildTimeCost = AddSpaces(units.unitBuildtimeCost[uid])
+		local buildTimeText = buildTimeColor .. buildTimeCost
+		font2:Print(
+			buildTimeText,
+			rect.xEnd - cellPadding - (cellInnerSize * 0.048),
+			rect.y + cellPadding + (priceFontSize * 2.35),
 			priceFontSize,
 			"ro"
 		)
@@ -1976,9 +1992,15 @@ local function handleButtonHover()
 							end
 							if not units.unitRestricted[uDefID] then
 								local unsetShowPrice
+								local unsetShowBuildtime
 								if not showPrice then
 									unsetShowPrice = true
 									showPrice = true
+								end
+
+								if not showBuildtime then
+									unsetShowBuildtime = true
+									showBuildtime = true
 								end
 
 								drawCell(
@@ -1992,6 +2014,11 @@ local function handleButtonHover()
 								if unsetShowPrice then
 									showPrice = false
 									unsetShowPrice = nil
+								end
+
+								if unsetShowBuildtime then
+									showBuildtime = false
+									unsetShowBuildtime = nil
 								end
 							end
 						end)

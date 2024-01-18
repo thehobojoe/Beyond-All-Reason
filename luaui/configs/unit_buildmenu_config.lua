@@ -7,6 +7,7 @@
 local unitName = {}
 local unitEnergyCost = {}
 local unitMetalCost = {}
+local unitBuildtimeCost = {}
 local unitGroup = {}
 local unitRestricted = {}
 local isBuilder = {}
@@ -43,6 +44,7 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 	unitIconType[unitDefID] = unitDef.iconType
 	unitEnergyCost[unitDefID] = unitDef.energyCost
 	unitMetalCost[unitDefID] = unitDef.metalCost
+	unitBuildtimeCost[unitDefID] = unitDef.buildTime
 
 	if unitDef.maxThisUnit == 0 then
 		unitRestricted[unitDefID] = true
@@ -95,7 +97,7 @@ local function restrictWindUnits(disable)
 end
 
 local function restrictGeothermalUnits(disable)
-	if disable then 
+	if disable then
 		Spring.Echo("Restricting Geothermal Power Plants: No vents", disable)
 	end
 	for unitDefID,_ in pairs(isGeothermal) do
@@ -191,6 +193,7 @@ return {
 	unitName = unitName,
 	unitEnergyCost = unitEnergyCost,
 	unitMetalCost = unitMetalCost,
+	unitBuildtimeCost = unitBuildtimeCost,
 	unitGroup = unitGroup,
 	unitRestricted = unitRestricted,
 	isBuilder = isBuilder,
