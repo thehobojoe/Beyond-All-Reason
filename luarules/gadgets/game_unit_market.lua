@@ -1,3 +1,7 @@
+if not Spring.GetModOptions().unit_market then
+    return
+end
+
 function gadget:GetInfo()
     return {
         name    = "Unit Market - Backend",
